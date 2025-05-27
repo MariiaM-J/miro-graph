@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Graph Import to Miro</title>
+  <script src="https://miro.com/app/static/sdk/v2/miro.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f0f0f0;
+      padding: 2rem;
+    }
+    button {
+      font-size: 1.2rem;
+      padding: 1rem 2rem;
+      background: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h2>Імпортувати граф у Miro</h2>
+  <p>Натисни кнопку нижче, щоб додати всі елементи графа на активну Miro-дошку:</p>
+  <button id="importBtn">Імпортувати</button>
+  <script>
+    async function fetchGraphData() {
+      const response = await fetch('miro_graph_data.json');
+      return response.json();
+    }
+
+    document.getElementById('importBtn').onclick = async () => {
+      const graph = await fetchGraphData();
+
+      const nodeTypeToShape = {
+        initiative: 'rectangle',
+        business_function: 'round_rectangle',
+        platform: 'diamond'
+      };
+
+      let x = 0, y = 0;
+      const stepX = 400, stepY = 250;
+      let created = {};
+
+      // Розкладка: ініціативи — зліва, БФ — по центру, платформи — справа
+      let nodesByType = {initiative: [], business_function: [], platform: []};
+      for (let n of graph.nodes) {
+        nodesByType[n.type].push(n);
+      }
+
+      // Додаємо ініціативи
+      for (let i = 0; i < nodesByType.initiative.length; ++i) {
+        let n = nodesByType.initiative[i];
+        const node = await miro.board.createShape({
+          content: n.label,
+          shape: nodeTypeToShape[n.type],
+          x: -stepX,
+          y: i * stepY,
+          width: 250,
+          height: 80,
+          style: {backgroundColor: n.color || "#FFD6A0", fontSize: 16}
+        });
+        created[n.id] = node.id;
+      }
+      // Додаємо бізнес-функції
+      for (let i = 0; i < nodesByType.business_function.length; ++i) {
+        let n = nodesByType.business_function[i];
+        const node = await miro.board.createShape({
+          content: n.label,
+          shape: nodeTypeToShape[n.type],
+          x: 0,
+          y: i * stepY,
+          width: 250,
+          height: 80,
+          style: {backgroundColor: n.color || "#E0E0E0", fontSize: 16}
+        });
+        created[n.id] = node.id;
+      }
+      // Додаємо платформи
+      for (let i = 0; i < nodesByType.platform.length; ++i) {
+        let n = nodesByType.platform[i];
+        const node = await miro.board.createShape({
+          content: n.label,
+          shape: nodeTypeToShape[n.type],
+          x: stepX,
+          y: i * stepY,
+          width: 250,
+          height: 80,
+          style: {backgroundColor: n.color || "#C1E7C1", fontSize: 16}
+        });
+        created[n.id] = node.id;
+      }
+      // Додаємо зв'язки
+      for (let edge of graph.edges) {
+        if (created[edge.from] && created[edge.to]) {
+          await miro.board.createConnector({
+            start: {shapeId: created[edge.from]},
+            end: {shapeId: created[edge.to]},
+            captions: [{text: edge.label || ""}]
+          });
+        }
+      }
+      alert("Граф успішно імпортовано!");
+    };
+  </script>
+</body>
+</html>
